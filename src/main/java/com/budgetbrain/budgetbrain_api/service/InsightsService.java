@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,10 @@ public class InsightsService {
     }
 
     public String generateInsight(List<Transaction> transactions) {
+        if (apiKey == null || apiKey.trim().isEmpty() || apiKey.equals("${GEMINI_API_KEY}") || apiKey.contains("your_actual_key_here")) {
+            throw new IllegalStateException("GEMINI_API_KEY environment variable is not set. Please configure it with a valid Google Gemini API key.");
+        }
+
         String summary = buildSpendingSummary(transactions);
         String prompt = "Here is a summary of a user's recent transactions by category:\n\n"
                 + summary
@@ -41,18 +46,23 @@ public class InsightsService {
                 )
         );
 
-        Map<String, Object> response = geminiWebClient.post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/v1beta/models/gemini-flash-latest:generateContent")
-                        .queryParam("key", apiKey)
-                        .build())
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block();
-//        System.out.println("RAW GEMINI RESPONSE: " + response);
-
-        return extractTextFromResponse(response);
+        try {
+            Map<String, Object> response = geminiWebClient.post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v1beta/models/gemini-flash-latest:generateContent")
+                            .queryParam("key", apiKey)
+                            .build())
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+            return extractTextFromResponse(response);
+        } catch (WebClientResponseException e) {
+            String responseBody = e.getResponseBodyAsString();
+            throw new RuntimeException("Gemini API call failed with status " + e.getStatusCode() + ": " + responseBody, e);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate insights: " + e.getMessage(), e);
+        }
     }
 
     private String buildSpendingSummary(List<Transaction> transactions) {

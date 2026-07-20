@@ -37,12 +37,16 @@ public class UploadController {
 
     @org.springframework.web.bind.annotation.GetMapping("/insights")
     public ResponseEntity<?> getInsights() {
-        List<Transaction> allTransactions = transactionRepository.findAll();
-        if (allTransactions.isEmpty()) {
-            return ResponseEntity.badRequest().body("No transactions found. Upload a CSV first.");
+        try {
+            List<Transaction> allTransactions = transactionRepository.findAll();
+            if (allTransactions.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "No transactions found. Upload a CSV first."));
+            }
+            String insight = insightsService.generateInsight(allTransactions);
+            return ResponseEntity.ok(Map.of("insight", insight));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
-        String insight = insightsService.generateInsight(allTransactions);
-        return ResponseEntity.ok(Map.of("insight", insight));
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
