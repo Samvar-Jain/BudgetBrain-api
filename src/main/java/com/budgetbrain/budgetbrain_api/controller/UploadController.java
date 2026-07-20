@@ -21,7 +21,7 @@ import java.util.Map;
 
 
 @RestController
-@org.springframework.web.bind.annotation.CrossOrigin(origins = "http://localhost:5173")
+@org.springframework.web.bind.annotation.CrossOrigin(origins = {"http://localhost:5173", "https://budgetbrain-frontend.vercel.app"})
 public class UploadController {
 
     private final WebClient mlServiceWebClient;
